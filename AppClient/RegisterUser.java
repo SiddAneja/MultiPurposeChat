@@ -85,6 +85,7 @@ public class RegisterUser extends JFrame {
           stmt.executeUpdate(qry);
           //System.out.println("test");
           JOptionPane.showMessageDialog(null, "New User Registered!");
+          //String sql = "create table " + user + "(Friend varchar(20) primary key, Socket varchar(20) not null);";
           LoginApp login = new LoginApp();
           login.setVisible(true);
           dispose();

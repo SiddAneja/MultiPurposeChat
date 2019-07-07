@@ -2,6 +2,7 @@ package AppClient;
 
 import java.awt.BorderLayout;
 import com.mysql.*;
+import appServer.appMain;
 import java.awt.EventQueue;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -21,6 +22,7 @@ public class LoginApp extends JFrame {
   private JPanel contentPane;
   private JTextField username;
   private JPasswordField password;
+  public String user;
 
   /**
    * Launch the application.
@@ -75,41 +77,8 @@ public class LoginApp extends JFrame {
     password.setBounds(98, 59, 116, 22);
     panel_1.add(password);
     
+       
     JButton loginBtn = new JButton("Login");
-    loginBtn.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent arg0) {
-        try {
-          Class.forName("com.mysql.cj.jdbc.Driver");
-          Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/chatapp", "root", "tiger");
-          Statement stmt = con.createStatement();
-          String user = username.getText();
-          String pass = new String(password.getPassword());
-          String qry = "select * from login where Username="+" '"+user+"';";
-          ResultSet rs = stmt.executeQuery(qry);
-          //System.out.println(rs.getString("Username"));
-          if(rs.next()) {
-            if(pass.equals(rs.getString("Password"))) {
-              //TODO
-              dispose();
-            }
-            else {
-              JOptionPane.showMessageDialog(null, "Incorrect Password");
-              password.setText("");
-            }
-          }
-          else {
-            JOptionPane.showMessageDialog(null, "User does not exist!");
-            username.setText("");
-            password.setText("");
-          }
-        }
-        catch(Exception e) {
-          JOptionPane.showMessageDialog(null, "No connection!");
-          username.setText("");
-          password.setText("");
-        }
-      }
-    });
     loginBtn.setBounds(92, 182, 97, 25);
     contentPane.add(loginBtn);
     
@@ -124,4 +93,6 @@ public class LoginApp extends JFrame {
     registerBtn.setBounds(225, 182, 97, 25);
     contentPane.add(registerBtn);
   }
+  
+  
 }
