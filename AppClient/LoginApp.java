@@ -2,6 +2,7 @@ package AppClient;
 
 import java.awt.BorderLayout;
 import com.mysql.*;
+import appServer.RequestType;
 import appServer.appMain;
 import java.awt.EventQueue;
 import javax.swing.JFrame;
@@ -11,9 +12,11 @@ import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JFormattedTextField;
+import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import java.awt.event.ActionListener;
 import java.sql.*;
+import java.util.ArrayList;
 import java.awt.event.ActionEvent;
 import javax.swing.JPasswordField;
 
@@ -23,6 +26,7 @@ public class LoginApp extends JFrame {
   private JTextField username;
   private JPasswordField password;
   public String user;
+  private String serverAddress;
 
   /**
    * Launch the application.
@@ -31,19 +35,22 @@ public class LoginApp extends JFrame {
     EventQueue.invokeLater(new Runnable() {
       public void run() {
         try {
-          LoginApp frame = new LoginApp();
-          frame.setVisible(true);
         } catch (Exception e) {
           e.printStackTrace();
         }
       }
     });
   }
+  
+  public String getName() {
+    return username.getText();
+  }
 
   /**
    * Create the frame.
    */
-  public LoginApp() {
+  public LoginApp(String serverAddress) {
+    this.serverAddress = serverAddress;
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     setBounds(100, 100, 450, 300);
     contentPane = new JPanel();
@@ -79,13 +86,42 @@ public class LoginApp extends JFrame {
     
        
     JButton loginBtn = new JButton("Login");
+    loginBtn.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) {
+        try {
+          Class.forName("com.mysql.cj.jdbc.Driver");
+          Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/chatapp", "root", "tiger");
+          Statement stmt = con.createStatement();
+          String name = username.getText();
+          String pass = new String(password.getPassword());
+          String qry = "select * from login where Username="+" '"+name+"';";
+          ResultSet rs = stmt.executeQuery(qry);
+          if(rs.next()) {
+            if(pass.equals(rs.getString("Password"))) {
+              Main main = new Main(name, serverAddress);
+              main.setVisible(true);
+              dispose();
+            }
+            else {
+              JOptionPane.showMessageDialog(null, "Incorrect Password");
+            }
+          }
+          else {
+            JOptionPane.showMessageDialog(null, "User does not exist!");
+          }
+        }
+        catch(Exception ew) {
+          JOptionPane.showMessageDialog(null, "No connection!");
+        }
+      }
+    });
     loginBtn.setBounds(92, 182, 97, 25);
     contentPane.add(loginBtn);
     
     JButton registerBtn = new JButton("New User");
     registerBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent arg0) {
-        RegisterUser registerUser = new RegisterUser();
+        RegisterUser registerUser = new RegisterUser(serverAddress);
         registerUser.setVisible(true);
         dispose();
       }

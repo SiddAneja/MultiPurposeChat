@@ -5,12 +5,16 @@ import java.awt.EventQueue;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
+import appServer.RequestType;
+import appServer.appMain;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import java.awt.event.ActionListener;
 import java.sql.*;
+import java.util.ArrayList;
 import java.awt.event.ActionEvent;
 import javax.swing.JPasswordField;
 
@@ -20,6 +24,7 @@ public class RegisterUser extends JFrame {
   private JTextField username;
   private JTextField emailText;
   private JPasswordField password;
+  private String serverAddress;
 
   /**
    * Launch the application.
@@ -28,8 +33,6 @@ public class RegisterUser extends JFrame {
     EventQueue.invokeLater(new Runnable() {
       public void run() {
         try {
-          RegisterUser frame = new RegisterUser();
-          frame.setVisible(true);
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -40,7 +43,8 @@ public class RegisterUser extends JFrame {
   /**
    * Create the frame.
    */
-  public RegisterUser() {
+  public RegisterUser(String serverAddress) {
+    this.serverAddress = serverAddress;
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     setBounds(100, 100, 450, 300);
     contentPane = new JPanel();
@@ -58,6 +62,7 @@ public class RegisterUser extends JFrame {
     contentPane.add(emailText);
     emailText.setColumns(10);
     
+    
     JLabel lblNewLabel = new JLabel("Choose your username:");
     lblNewLabel.setBounds(46, 62, 138, 16);
     contentPane.add(lblNewLabel);
@@ -70,36 +75,42 @@ public class RegisterUser extends JFrame {
     lblPickAPassword.setBounds(86, 158, 98, 16);
     contentPane.add(lblPickAPassword);
     
+    password = new JPasswordField();
+    password.setBounds(245, 155, 116, 22);
+    contentPane.add(password);
+    
+    
     JButton registerBtn = new JButton("Register");
     registerBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent arg0) {
-        try {
-          Class.forName("com.mysql.cj.jdbc.Driver");
-          Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/chatapp", "root", "tiger");
-          Statement stmt = con.createStatement();
-          String user = username.getText();
-          String pass = new String(password.getPassword());
-          String email = emailText.getText();
-          String qry = "insert into login values ('"+user+"', '"+pass+"', '"+email+"');";
-          //System.out.println(qry);
-          stmt.executeUpdate(qry);
-          //System.out.println("test");
-          JOptionPane.showMessageDialog(null, "New User Registered!");
-          //String sql = "create table " + user + "(Friend varchar(20) primary key, Socket varchar(20) not null);";
-          LoginApp login = new LoginApp();
-          login.setVisible(true);
-          dispose();
-        }
-        catch(Exception e) {
-          JOptionPane.showMessageDialog(null, "No Connection");
+        String name = username.getText();
+        if(!appMain.names.contains(name)) {
+          try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/chatapp", "root", "tiger");
+            Statement stmt = con.createStatement();
+
+            String pass = new String (password.getPassword());
+            String email = emailText.getText();
+            String qry = "insert into login values ('"+name+"', '"+pass+"', '"+email+"');";
+            stmt.executeUpdate(qry);
+            String sql = "create table " + name + "(FriendName varchar(20) primary key, Socket varchar(20));";
+            stmt.executeUpdate(sql);
+            JOptionPane.showMessageDialog(null, "New User Registered!");
+            appMain.names.add(name);
+            LoginApp login = new LoginApp(serverAddress);
+            login.setVisible(true);
+            dispose();
+          }
+          catch(Exception e) {
+            JOptionPane.showMessageDialog(null, "No Connection");
+          }
+        }else {
+          JOptionPane.showMessageDialog(null, "User already exists!");
         }
       }
     });
     registerBtn.setBounds(151, 204, 97, 25);
     contentPane.add(registerBtn);
-    
-    password = new JPasswordField();
-    password.setBounds(245, 155, 116, 22);
-    contentPane.add(password);
   }
 }

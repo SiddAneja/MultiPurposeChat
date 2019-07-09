@@ -25,9 +25,13 @@ public class appClient extends JFrame {
     JTextField textField = new JTextField(50);
     JTextArea textArea = new JTextArea(16, 50);
 
+    /**
+    * The constructor of the client which creates the Frame and stores the server address.
+    */
     public appClient(String serverAddress) {
         this.serverAddress = serverAddress;
 
+        //Create Frame
         textField.setEditable(false);
         textArea.setEditable(false);
         frame.getContentPane().add(textField, BorderLayout.SOUTH);
@@ -43,6 +47,9 @@ public class appClient extends JFrame {
         });
     }
 
+    /**
+    * This method create a pop-up screen where the user has to input a username.
+    */
     public String getName() {
         return JOptionPane.showInputDialog(
             frame,
@@ -52,11 +59,13 @@ public class appClient extends JFrame {
         );
     }
 
+    /**
+    * This method is the main method that the client uses to send and receive messages from the server.
+    */
     private void run() throws IOException {
         try {
-        	//SSLSocketFactory factory = (SSLSocketFactory) SSLSocketFactory.getDefault();
-            //Socket socket = factory.createSocket(serverAddress, 5900);
-            Socket socket = new Socket(serverAddress, 5900);
+            Socket socket = new Socket(serverAddress, 5900); //Creates a socket that connects to the given address and port
+            //Scanner to read inputStream from the server
             in = new Scanner(socket.getInputStream());
             out = new PrintWriter(socket.getOutputStream(), true);
 
@@ -79,6 +88,8 @@ public class appClient extends JFrame {
         }
     }
 
+    /**
+   	*/ 
     public static void main(String[] args) throws Exception {
         if (args.length != 1) {
             System.err.println("Pass the server IP as the sole command line argument");
