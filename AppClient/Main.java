@@ -33,27 +33,32 @@ import java.util.Scanner;
 import java.awt.event.ActionEvent;
 
 public class Main extends JFrame {
-  public Main main = null;
+  
   private static final String serverAddress = "127.0.0.1";
+  
   public ArrayList<String> names = new ArrayList<>();
+  
   public String user;
+  
   private Socket socket;
+  
   private ObjectInputStream in;
+  
   private ObjectOutputStream out;
+  
   private JPanel contentPane;
+  
   private JTextField input;
+  
   private JTextField add;
+  
   JButton sendBtn;
+  
   JList list;
+  
   JTextArea textArea;
   
   public String getName() {
-//    return JOptionPane.showInputDialog(
-//        null,
-//        "Choose a screen name:",
-//        "Screen name selection",
-//        JOptionPane.PLAIN_MESSAGE
-//    );
     return user;
 }
   
@@ -85,7 +90,7 @@ public class Main extends JFrame {
         if(line.startsWith("SUBMIT")) {
           String name = getName();
           out.writeObject(name);
-          this.setTitle("Multi-purpose chat - " + name);
+          this.setTitle("Multi-purpose chat: " + name);
         }
         else if(line.startsWith("CONNECTED")) {
           try {
@@ -163,7 +168,7 @@ public class Main extends JFrame {
     panel.add(panel_2);
     panel_2.setLayout(null);
     
-    list = refreshList(list, username);
+    list = refreshList(username);
     list.addListSelectionListener(new ListSelectionListener() {
       @Override
       public void valueChanged(ListSelectionEvent arg0) {
@@ -192,7 +197,7 @@ public class Main extends JFrame {
             qry = "insert into " + user + " values('"+friendToAdd+"', '"+getSocket(friendToAdd)+"');";
             stmt.executeUpdate(qry);
             JOptionPane.showMessageDialog(null, "Friend added!");
-            list = refreshList(list, user);
+            add.setText("");
           }
           else {
             JOptionPane.showMessageDialog(null,"User does not exist.");
@@ -201,7 +206,7 @@ public class Main extends JFrame {
         catch(Exception e) {
           //TODO
         }
-        list = refreshList(list, user);
+        list = refreshList(user);
       }
     });
     addfriend.setBounds(150, 441, 41, 25);
@@ -260,7 +265,7 @@ public class Main extends JFrame {
   }
   
   
-  public JList refreshList(JList list, String username) {
+  public JList refreshList(String username) {
     DefaultListModel listModel = new DefaultListModel();
     try {
       Class.forName("com.mysql.cj.jdbc.Driver");
@@ -274,6 +279,7 @@ public class Main extends JFrame {
           listModel.addElement(friend);
         }
       }
+      list.setModel(listModel);
     }catch(Exception e) {
       //TODO
     }

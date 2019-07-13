@@ -14,16 +14,47 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.swing.DefaultListModel;
 
+/**
+ * The server for the chat application. It allows multiple users to connect and text each other using 
+ * Sockets and ThreadPools.
+ * @author Siddharth
+ *
+ */
 public class appMain{
+  
+  /**
+   * The parameter that stores the port for the server.
+   */
   public static final int PORT = 59001;
+  
+  /**
+   * A HashSet which stores the names of all the users registered to use the app.
+   */
   public static HashSet<String> names = new HashSet<String>();
+  
+  /**
+   * A HashMap that stores the Socket of each user along with their username as a key value.
+   */
   public static HashMap<String, Socket> clients = new HashMap<String, Socket>();
+  
+  /**
+   * A HashMap that stores each users OutputStream along with their username as a key value.
+   */
   public static HashMap<String, ObjectOutputStream> map = new HashMap<>();
 
+  /**
+   * This class Handles the connection to the Server.
+   * @author Siddharth
+   *
+   */
   private static class Handler extends Thread{
+    
     private Socket socket;
+    
     private ObjectInputStream in;
+    
     private ObjectOutputStream out;
+    
     private ObjectOutputStream friendOut;
     
     public Handler(Socket socket) {
@@ -53,9 +84,6 @@ public class appMain{
             }
             break;
           }
-//          DefaultListModel model = (DefaultListModel) in.readObject();
-//          int type = (int) model.elementAt(0);
-//          String name = (String) model.elementAt(1);
           
           while(true) {
             try {

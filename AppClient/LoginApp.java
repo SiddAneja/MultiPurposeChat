@@ -21,28 +21,37 @@ import java.util.ArrayList;
 import java.awt.event.ActionEvent;
 import javax.swing.JPasswordField;
 
+/**
+ * This class creates a JFrame which generates a login page for the user to launch the main application.
+ * @author Siddharth
+ *
+ */
 public class LoginApp extends JFrame {
 
+  /**
+   * 
+   */
   private JPanel contentPane;
+  
+  /**
+   * Creates a JTextField called username, where the user enters their username.
+   */
   private JTextField username;
+  
+  /**
+   * Creates a JPasswordField with Echo-characters which permits the user to enter their password.
+   */
   private JPasswordField password;
+  
+  /**
+   * Stores the name of the user.
+   */
   public String user;
+  
   /**
    * Launch the application.
    */
   public static void main(String[] args) {
-    EventQueue.invokeLater(new Runnable() {
-      public void run() {
-        try {
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
-      }
-    });
-  }
-  
-  public String getName() {
-    return username.getText();
   }
   
 
@@ -87,19 +96,28 @@ public class LoginApp extends JFrame {
     JButton loginBtn = new JButton("Login");
     loginBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
+        //When the "login" button is clicked a  request is made to the MySQL database to check if the 
+        //user is registered and if their entered passwords match.
         try {
           Class.forName("com.mysql.cj.jdbc.Driver");
+          //Create a JDBC connection with the database.
           Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/chatapp", "root", "tiger");
+          //Creates a statement using the connection
           Statement stmt = con.createStatement();
           String name = username.getText();
           String pass = new String(password.getPassword());
+          //Create a String which is the query to be run in SQL
           String qry = "select * from login where Username="+" '"+name+"';";
+          //Stores the returned value of the query in the ResultSet
           ResultSet rs = stmt.executeQuery(qry);
+          //Checks if the ResultSet has values stored for the given query
           if(rs.next()) {
+            //If the password and username match, it launches the main application.
             if(pass.equals(rs.getString("Password"))) {
               Main main = new Main(name);
               main.setVisible(true);
               main.names.add(name);
+              //Creates a new Thread to keep the running() method always running
               Thread newThread = new Thread(new Runnable() {
                 @Override
                 public void run() {

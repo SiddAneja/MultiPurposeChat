@@ -1,5 +1,10 @@
 package appServer;
 
+/**
+ * This class provides a integer value for the type of request send by the client or server.
+ * @author Siddharth
+ *
+ */
 public class RequestType {
   public static final int CHECK = 9;
   

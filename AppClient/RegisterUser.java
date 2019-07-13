@@ -18,25 +18,26 @@ import java.util.ArrayList;
 import java.awt.event.ActionEvent;
 import javax.swing.JPasswordField;
 
+/**
+ * This JFrame is the Register page for the Chat application. Users create their accounts and their information 
+ * gets stored in the MySQL database after making a new account.
+ * @author Siddharth
+ *
+ */
 public class RegisterUser extends JFrame {
 
   private JPanel contentPane;
+  
   private JTextField username;
+  
   private JTextField emailText;
+  
   private JPasswordField password;
 
   /**
    * Launch the application.
    */
   public static void main(String[] args) {
-    EventQueue.invokeLater(new Runnable() {
-      public void run() {
-        try {
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
-      }
-    });
   }
 
   /**
