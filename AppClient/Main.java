@@ -48,12 +48,13 @@ public class Main extends JFrame {
   JTextArea textArea;
   
   public String getName() {
-    return JOptionPane.showInputDialog(
-        null,
-        "Choose a screen name:",
-        "Screen name selection",
-        JOptionPane.PLAIN_MESSAGE
-    );
+//    return JOptionPane.showInputDialog(
+//        null,
+//        "Choose a screen name:",
+//        "Screen name selection",
+//        JOptionPane.PLAIN_MESSAGE
+//    );
+    return user;
 }
   
   public String getSocket(String username) {
