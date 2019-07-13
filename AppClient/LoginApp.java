@@ -15,6 +15,7 @@ import javax.swing.JFormattedTextField;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import java.awt.event.ActionListener;
+import java.io.IOException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.awt.event.ActionEvent;
@@ -26,8 +27,6 @@ public class LoginApp extends JFrame {
   private JTextField username;
   private JPasswordField password;
   public String user;
-  private String serverAddress;
-
   /**
    * Launch the application.
    */
@@ -45,12 +44,12 @@ public class LoginApp extends JFrame {
   public String getName() {
     return username.getText();
   }
+  
 
   /**
    * Create the frame.
    */
-  public LoginApp(String serverAddress) {
-    this.serverAddress = serverAddress;
+  public LoginApp() {
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     setBounds(100, 100, 450, 300);
     contentPane = new JPanel();
@@ -98,9 +97,21 @@ public class LoginApp extends JFrame {
           ResultSet rs = stmt.executeQuery(qry);
           if(rs.next()) {
             if(pass.equals(rs.getString("Password"))) {
-              Main main = new Main(name, serverAddress);
+              Main main = new Main(name);
               main.setVisible(true);
-              dispose();
+              main.names.add(name);
+              Thread newThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                  try {
+                    main.running();
+                  } catch (IOException e) {
+                    // TODO
+                  }
+                }
+              });
+              newThread.start();
+              setVisible(false);
             }
             else {
               JOptionPane.showMessageDialog(null, "Incorrect Password");
@@ -121,7 +132,7 @@ public class LoginApp extends JFrame {
     JButton registerBtn = new JButton("New User");
     registerBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent arg0) {
-        RegisterUser registerUser = new RegisterUser(serverAddress);
+        RegisterUser registerUser = new RegisterUser();
         registerUser.setVisible(true);
         dispose();
       }

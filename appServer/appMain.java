@@ -10,6 +10,8 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javax.swing.DefaultListModel;
 
 public class appMain{
@@ -29,16 +31,32 @@ public class appMain{
     }
     
     public void run() {
+      String name;
       while(true) {
         try {
-          in = new ObjectInputStream(socket.getInputStream());
           out = new ObjectOutputStream(socket.getOutputStream());
-          DefaultListModel model = (DefaultListModel) in.readObject();
-          int type = (int) model.elementAt(0);
-          String name = (String) model.elementAt(1);
-          System.out.println(name);
-          clients.put(name, socket);
-          map.put(name, out);
+          in = new ObjectInputStream(socket.getInputStream());
+          while(true) {
+            out.writeObject("SUBMIT");
+            name = (String) in.readObject();
+            if (name == null){
+              return;
+            }
+            clients.put(name, socket);
+            map.put(name, out);
+            while(true) {
+              out.writeObject("CONNECTED");
+              String read = (String) in.readObject();
+              if(read.equals("SUCCESS")) {
+                break;
+              }
+            }
+            break;
+          }
+//          DefaultListModel model = (DefaultListModel) in.readObject();
+//          int type = (int) model.elementAt(0);
+//          String name = (String) model.elementAt(1);
+          
           while(true) {
             try {
               in = new ObjectInputStream(socket.getInputStream());
@@ -62,6 +80,7 @@ public class appMain{
     private void checkMsgType(DefaultListModel input, String sender) {
       switch((int) input.elementAt(0)) {
         case RequestType.SEND_MSG:
+          System.out.println("TYPE DETECTED");
           sendMessage(input, sender);
           break;
         case RequestType.LOGOUT:
@@ -84,6 +103,7 @@ public class appMain{
             DefaultListModel model = new DefaultListModel();
             model.addElement(RequestType.SEND_MSG);
             model.addElement(message);
+            model.addElement(sender);
             friendOut = new ObjectOutputStream((clients.get(friendName)).getOutputStream());
             friendOut.writeObject(model);
             friendOut.flush();
@@ -91,6 +111,7 @@ public class appMain{
           }
           catch (IOException e){
             //TODO
+            System.out.println("FAILED TO SEND");
           }
         }
       }
@@ -105,9 +126,8 @@ public class appMain{
 
   public static void main(String[] args) {
     System.out.println("The server is running.....");
-    try{
-      ServerSocket listener = new ServerSocket(PORT);
-      appMain server = new appMain();
+    ExecutorService threadPool = Executors.newFixedThreadPool(500);
+    try(ServerSocket listener = new ServerSocket(PORT);){
       while(true) {
         new Handler (listener.accept()).start();
       }

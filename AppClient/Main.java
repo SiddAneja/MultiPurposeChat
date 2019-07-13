@@ -27,13 +27,17 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Scanner;
 import java.awt.event.ActionEvent;
 
 public class Main extends JFrame {
+  public Main main = null;
+  private static final String serverAddress = "127.0.0.1";
+  public ArrayList<String> names = new ArrayList<>();
+  public String user;
   private Socket socket;
-  private String user;
-  private String serverAddress;
   private ObjectInputStream in;
   private ObjectOutputStream out;
   private JPanel contentPane;
@@ -41,50 +45,83 @@ public class Main extends JFrame {
   private JTextField add;
   JButton sendBtn;
   JList list;
+  JTextArea textArea;
   
-  private void running() throws IOException{
-    
+  public String getName() {
+    return JOptionPane.showInputDialog(
+        null,
+        "Choose a screen name:",
+        "Screen name selection",
+        JOptionPane.PLAIN_MESSAGE
+    );
+}
+  
+  public String getSocket(String username) {
+    try {
+      Class.forName("com.mysql.cj.jdbc.Driver");
+      Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/chatapp", "root", "tiger");
+      Statement stmt = con.createStatement();
+      String qry = "select Socket from " + username + " where FriendName="+" '"+username+"';";
+      ResultSet rs = stmt.executeQuery(qry);
+      if(rs.next()) {
+        return rs.getString("Socket");
+      }
+    } catch(Exception ex) {
+      //TODO
+    }
+    return null;
+  }
+  
+  public void running() throws IOException{
+    this.user = this.names.get(0);
     try {
       socket = new Socket(serverAddress, 59001);
-      in = new ObjectInputStream(socket.getInputStream());
       out = new ObjectOutputStream(socket.getOutputStream());
-      DefaultListModel resModel = new DefaultListModel();
-      resModel.addElement(RequestType.START);
-      resModel.addElement(user);
-      out.writeObject(resModel);
-      
-      try {
-        Class.forName("com.mysql.cj.jdbc.Driver");
-        Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/chatapp", "root", "tiger");
-        Statement stmt = con.createStatement();
-        String qry = "update " + user + " set Socket = '"+socket+"' where Username = '"+user+"';";
-      }catch(Exception e) {
-        //TODO
-      }
+      in = new ObjectInputStream(socket.getInputStream());
       
       while(true) {
-        sendBtn.addActionListener(new ActionListener() {
-          public void actionPerformed(ActionEvent arg0) {
-              try {
-                out = new ObjectOutputStream(socket.getOutputStream());
-                DefaultListModel sendModel = new DefaultListModel();
-                sendModel.addElement(RequestType.SEND_MSG);
-                sendModel.addElement(input.getText());
-                sendModel.addElement(user);
-                DefaultListModel<String> friends = new DefaultListModel<String>();
-                friends.addElement((String)list.getSelectedValue());
-                System.out.println(list.getSelectedValue());
-                sendModel.addElement(friends);
-                out.writeObject(sendModel);
-                input.setText("");
-              } catch (IOException e1) {
-                // TODO 
-              }
-            }
-        });
+        String line = (String)in.readObject();
+        if(line.startsWith("SUBMIT")) {
+          String name = getName();
+          out.writeObject(name);
+        }
+        else if(line.startsWith("CONNECTED")) {
+          try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/chatapp", "root", "tiger");
+            Statement stmt = con.createStatement();
+            String qry = "update " + user + " set Socket = '"+socket+"' where FriendName = '"+user+"';";
+            stmt.executeUpdate(qry);
+            System.out.println("This is the socket: " + socket);
+            out.writeObject("SUCCESS");
+            break;
+          }catch(Exception e) {
+            //TODO
+          }
+        }
       }
+      while(true) {
+        try {
+          in = new ObjectInputStream(socket.getInputStream());
+          System.out.println("Second loop");
+          DefaultListModel input = (DefaultListModel)in.readObject();
+          if(input == null) {
+            continue;
+          }
+          System.out.println("ACCEPTED");
+          int type = (int) input.elementAt(0);
+          if(type == RequestType.SEND_MSG) {
+            String message = (String) input.elementAt(1);
+            String sender = (String) input.elementAt(2);
+            textArea.append(sender + ": " + message + "\n");
+          }
+        }
+        catch(Exception ex) {
+          //TODO
+        }
+      }
+    } catch (ClassNotFoundException e) {
     } finally {
-      
     }
   }
 
@@ -92,24 +129,21 @@ public class Main extends JFrame {
    * Launch the application.
    */
   public static void main(String[] args) throws Exception{
-    if (args.length != 1) {
-      System.err.println("Pass the server IP as the sole command line argument");
+    if(args.length == 0) {
+      System.out.print("Pass the run keyword as the sole command line arguement.");
       return;
     }
-    else if(args.length == 1){
-      LoginApp login = new LoginApp(args[0]);
+    if(args.length ==1 && args[0].equalsIgnoreCase("run")) {
+      LoginApp login = new LoginApp();
       login.setVisible(true);
     }
-    
   }
 
   /**
    * Create the frame.
    * @param username 
    */
-  public Main(String username, String serverAddress) {
-    user = username;
-    this.serverAddress = serverAddress;
+  public Main(String username) {
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     setBounds(100, 100, 726, 524);
     contentPane = new JPanel();
@@ -127,7 +161,7 @@ public class Main extends JFrame {
     panel.add(panel_2);
     panel_2.setLayout(null);
     
-    list = refreshList(list, user);
+    list = refreshList(list, username);
     list.addListSelectionListener(new ListSelectionListener() {
       @Override
       public void valueChanged(ListSelectionEvent arg0) {
@@ -153,9 +187,10 @@ public class Main extends JFrame {
           String qry = "select * from login where Username="+" '"+friendToAdd+"';";
           ResultSet rs = stmt.executeQuery(qry);
           if(rs.next()) {
-            qry = "insert into " + username + " values('"+friendToAdd+"', '"+appMain.clients.get(friendToAdd)+"');";
+            qry = "insert into " + user + " values('"+friendToAdd+"', '"+getSocket(friendToAdd)+"');";
             stmt.executeUpdate(qry);
             JOptionPane.showMessageDialog(null, "Friend added!");
+            list = refreshList(list, user);
           }
           else {
             JOptionPane.showMessageDialog(null,"User does not exist.");
@@ -187,10 +222,35 @@ public class Main extends JFrame {
     input.setEditable(false);
     
     sendBtn = new JButton("Send");
+    sendBtn.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent arg0) {
+          try {
+            System.out.println("TRYING TO GET STREAM");
+            out = new ObjectOutputStream(socket.getOutputStream());
+            System.out.println("GOT OUT STREAM");
+            if(out == null) {
+              System.out.println("NULL SOCKET");
+            }
+            DefaultListModel sendModel = new DefaultListModel();
+            sendModel.addElement(RequestType.SEND_MSG);
+            sendModel.addElement(input.getText());
+            sendModel.addElement(user);
+            DefaultListModel<String> friends = new DefaultListModel<String>();
+            friends.addElement((String)list.getSelectedValue());
+            friends.addElement(user);
+            sendModel.addElement(friends);
+            out.writeObject(sendModel);
+            input.setText("");
+          } catch (IOException e1) {
+            // TODO 
+            System.out.println("FAILED");
+          }
+        }
+    });
     sendBtn.setBounds(397, 13, 72, 34);
     panel_3.add(sendBtn);
     
-    JTextArea textArea = new JTextArea();
+    textArea = new JTextArea();
     textArea.setEditable(false);
     textArea.setBounds(215, 73, 481, 318);
     contentPane.add(textArea);
@@ -207,7 +267,10 @@ public class Main extends JFrame {
       String qry = "select * from " + username;
       ResultSet rs = stmt.executeQuery(qry);
       while(rs.next()) {
-        listModel.addElement(rs.getString("FriendName"));
+        String friend = rs.getString("FriendName");
+        if(!friend.equals(username)) {
+          listModel.addElement(friend);
+        }
       }
     }catch(Exception e) {
       //TODO

@@ -24,7 +24,6 @@ public class RegisterUser extends JFrame {
   private JTextField username;
   private JTextField emailText;
   private JPasswordField password;
-  private String serverAddress;
 
   /**
    * Launch the application.
@@ -43,8 +42,7 @@ public class RegisterUser extends JFrame {
   /**
    * Create the frame.
    */
-  public RegisterUser(String serverAddress) {
-    this.serverAddress = serverAddress;
+  public RegisterUser() {
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     setBounds(100, 100, 450, 300);
     contentPane = new JPanel();
@@ -94,11 +92,13 @@ public class RegisterUser extends JFrame {
             String email = emailText.getText();
             String qry = "insert into login values ('"+name+"', '"+pass+"', '"+email+"');";
             stmt.executeUpdate(qry);
-            String sql = "create table " + name + "(FriendName varchar(20) primary key, Socket varchar(20));";
+            String sql = "create table " + name + "(FriendName varchar(20) primary key, Socket varchar(255));";
             stmt.executeUpdate(sql);
+            qry = "insert into " + name + "(FriendName) values ('"+name+"');";
+            stmt.executeUpdate(qry);
             JOptionPane.showMessageDialog(null, "New User Registered!");
             appMain.names.add(name);
-            LoginApp login = new LoginApp(serverAddress);
+            LoginApp login = new LoginApp();
             login.setVisible(true);
             dispose();
           }
