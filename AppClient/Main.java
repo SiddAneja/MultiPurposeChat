@@ -85,6 +85,7 @@ public class Main extends JFrame {
         if(line.startsWith("SUBMIT")) {
           String name = getName();
           out.writeObject(name);
+          this.setTitle("Multi-purpose chat - " + name);
         }
         else if(line.startsWith("CONNECTED")) {
           try {
