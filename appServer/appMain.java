@@ -1,6 +1,7 @@
 package appServer;
 
 import java.io.*;
+import data.Data;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.Connection;
@@ -25,7 +26,7 @@ public class appMain{
   /**
    * The parameter that stores the port for the server.
    */
-  public static final int PORT = 59001;
+  public static final int PORT = 59003;
   
   /**
    * A HashSet which stores the names of all the users registered to use the app.
@@ -92,6 +93,7 @@ public class appMain{
               if(inputMsg == null) {
                 continue;
               }
+              System.out.println("TYPE = " + ((DefaultListModel)inputMsg).elementAt(0));
               checkMsgType((DefaultListModel<Object>) inputMsg, name);
             }
             catch(Exception e) {
@@ -108,14 +110,44 @@ public class appMain{
     private void checkMsgType(DefaultListModel input, String sender) {
       switch((int) input.elementAt(0)) {
         case RequestType.SEND_MSG:
-          System.out.println("TYPE DETECTED");
+          System.out.println("Send DETECTED");
           sendMessage(input, sender);
+          break;
+        case RequestType.SEND_FILE:
+          System.out.println("File detected");
+          sendFile(input, sender);
           break;
         case RequestType.LOGOUT:
           Logout(input, sender);
           break;
         default:
           break;
+      }
+    }
+    
+    private void sendFile(DefaultListModel input, String sender) {
+      String user = (String) input.elementAt(2);
+      Data data = (Data) input.elementAt(1);
+      DefaultListModel<String> friendList = (DefaultListModel<String>) input.elementAt(3);
+      for(int i = 0; i < friendList.size(); i++) {
+        String friendName = friendList.elementAt(i);
+        friendOut = map.get(friendName);
+        if(user.equals(sender) && friendOut != null) {
+          try {
+            DefaultListModel model = new DefaultListModel();
+            model.addElement(RequestType.SEND_FILE);
+            model.addElement(data);
+            model.addElement(sender);
+            friendOut = new ObjectOutputStream((clients.get(friendName)).getOutputStream());
+            friendOut.writeObject(model);
+            friendOut.flush();
+            System.out.println("Send file successful!");
+          }
+          catch (IOException e){
+            //TODO
+            System.out.println("FAILED TO SEND");
+          }
+        }
       }
     }
     

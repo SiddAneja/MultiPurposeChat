@@ -1,6 +1,7 @@
 package AppClient;
 
 import java.awt.BorderLayout;
+import data.Data;
 import java.awt.Component;
 import java.awt.EventQueue;
 import java.awt.List;
@@ -17,8 +18,11 @@ import javax.swing.ListSelectionModel;
 import javax.swing.JTextField;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JTextArea;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -35,6 +39,8 @@ import java.awt.event.ActionEvent;
 public class Main extends JFrame {
   
   private static final String serverAddress = "127.0.0.1";
+  
+  public static final int PORT = 59003;
   
   public ArrayList<String> names = new ArrayList<>();
   
@@ -53,6 +59,8 @@ public class Main extends JFrame {
   private JTextField add;
   
   JButton sendBtn;
+  
+  JButton filebtn;  
   
   JList list;
   
@@ -81,7 +89,7 @@ public class Main extends JFrame {
   public void running() throws IOException{
     this.user = this.names.get(0);
     try {
-      socket = new Socket(serverAddress, 59001);
+      socket = new Socket(serverAddress, PORT);
       out = new ObjectOutputStream(socket.getOutputStream());
       in = new ObjectInputStream(socket.getInputStream());
       
@@ -121,6 +129,11 @@ public class Main extends JFrame {
             String message = (String) input.elementAt(1);
             String sender = (String) input.elementAt(2);
             textArea.append(sender + ": " + message + "\n");
+          }
+          else if(type == RequestType.SEND_FILE) {
+            Data data = (Data) input.elementAt(1);
+            String sender = (String) input.elementAt(2);
+            textArea.append(sender + ": " + data + "\n");
           }
         }
         catch(Exception ex) {
@@ -223,7 +236,7 @@ public class Main extends JFrame {
     panel_3.setLayout(null);
     
     input = new JTextField();
-    input.setBounds(12, 13, 367, 34);
+    input.setBounds(12, 13, 284, 34);
     panel_3.add(input);
     input.setColumns(10);
     input.setEditable(false);
@@ -232,12 +245,7 @@ public class Main extends JFrame {
     sendBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent arg0) {
           try {
-            System.out.println("TRYING TO GET STREAM");
             out = new ObjectOutputStream(socket.getOutputStream());
-            System.out.println("GOT OUT STREAM");
-            if(out == null) {
-              System.out.println("NULL SOCKET");
-            }
             DefaultListModel sendModel = new DefaultListModel();
             sendModel.addElement(RequestType.SEND_MSG);
             sendModel.addElement(input.getText());
@@ -257,6 +265,15 @@ public class Main extends JFrame {
     sendBtn.setBounds(397, 13, 72, 34);
     panel_3.add(sendBtn);
     
+    filebtn = new JButton("File");
+    filebtn.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent arg0) {
+        openFile(arg0);
+      }
+    });
+    filebtn.setBounds(318, 13, 67, 34);
+    panel_3.add(filebtn);
+    
     textArea = new JTextArea();
     textArea.setEditable(false);
     textArea.setBounds(215, 73, 481, 318);
@@ -264,6 +281,35 @@ public class Main extends JFrame {
     
   }
   
+  private void openFile(ActionEvent evt) {
+    try {
+      out = new ObjectOutputStream(socket.getOutputStream());
+      JFileChooser choose = new JFileChooser();
+      int c = choose.showOpenDialog(this);
+      if(c == JFileChooser.APPROVE_OPTION) {
+        File f = choose.getSelectedFile();
+        FileInputStream inFile = new FileInputStream(f);
+        byte b[] = new byte[inFile.available()];
+        inFile.read(b);
+        Data data = new Data();
+        data.setStatus("File");//TODO
+        data.setName(f.getName());
+        data.setFile(b);
+        DefaultListModel fileModel = new DefaultListModel();
+        fileModel.addElement(RequestType.SEND_FILE);
+        fileModel.addElement(data);
+        fileModel.addElement(user);
+        DefaultListModel<String> friends = new DefaultListModel<String>();
+        friends.addElement((String)list.getSelectedValue());
+        friends.addElement(user);
+        fileModel.addElement(friends);
+        out.writeObject(fileModel);
+      }
+    }
+    catch(Exception e) {
+      //TODO
+    }
+  }
   
   public JList refreshList(String username) {
     DefaultListModel listModel = new DefaultListModel();
