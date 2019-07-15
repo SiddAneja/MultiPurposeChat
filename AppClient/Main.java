@@ -135,14 +135,16 @@ public class Main extends JFrame {
             Data data = (Data) input.elementAt(1);
             String sender = (String) input.elementAt(2);
             JFileChooser choose = new JFileChooser();
-            int c = choose.showSaveDialog(this);
+            int c = choose.showSaveDialog(null);
             if(c == JFileChooser.APPROVE_OPTION) {
               byte[] b = data.getFile();
-              FileOutputStream outFile = new FileOutputStream(new File(choose.getSelectedFile().getAbsolutePath()));
+              File f = new File(choose.getSelectedFile().getPath() +  data.getName().substring(data.getName().indexOf(".")));
+              System.out.println(f.getAbsolutePath());
+              FileOutputStream outFile = new FileOutputStream(f);
               outFile.write(b);
               outFile.close();
+              textArea.append(sender + ": " + f.getAbsolutePath() + " File Saved.\n");
             }
-            textArea.append(sender + ": " + data + " File Saved.\n");
           }
         }
         catch(Exception ex) {
@@ -238,6 +240,15 @@ public class Main extends JFrame {
     panel_1.setBounds(203, 0, 505, 60);
     contentPane.add(panel_1);
     panel_1.setLayout(null);
+    
+    JButton callBtn = new JButton("Call");
+    callBtn.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent arg0) {
+        
+      }
+    });
+    callBtn.setBounds(427, 13, 66, 34);
+    panel_1.add(callBtn);
     
     JPanel panel_3 = new JPanel();
     panel_3.setBounds(215, 404, 481, 60);
