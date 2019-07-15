@@ -23,6 +23,7 @@ import javax.swing.JTextArea;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -133,7 +134,15 @@ public class Main extends JFrame {
           else if(type == RequestType.SEND_FILE) {
             Data data = (Data) input.elementAt(1);
             String sender = (String) input.elementAt(2);
-            textArea.append(sender + ": " + data + "\n");
+            JFileChooser choose = new JFileChooser();
+            int c = choose.showSaveDialog(this);
+            if(c == JFileChooser.APPROVE_OPTION) {
+              byte[] b = data.getFile();
+              FileOutputStream outFile = new FileOutputStream(new File(choose.getSelectedFile().getAbsolutePath()));
+              outFile.write(b);
+              outFile.close();
+            }
+            textArea.append(sender + ": " + data + " File Saved.\n");
           }
         }
         catch(Exception ex) {
@@ -301,7 +310,6 @@ public class Main extends JFrame {
         fileModel.addElement(user);
         DefaultListModel<String> friends = new DefaultListModel<String>();
         friends.addElement((String)list.getSelectedValue());
-        friends.addElement(user);
         fileModel.addElement(friends);
         out.writeObject(fileModel);
       }
