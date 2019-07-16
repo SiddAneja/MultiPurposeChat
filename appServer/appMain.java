@@ -13,6 +13,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.Mixer;
+import javax.sound.sampled.SourceDataLine;
+import javax.sound.sampled.TargetDataLine;
 import javax.swing.DefaultListModel;
 
 /**
@@ -58,6 +65,20 @@ public class appMain{
     
     private ObjectOutputStream friendOut;
     
+    private InputStream voiceIn;
+    
+    private OutputStream voiceOut;
+    
+    private TargetDataLine targetDataLine;
+    
+    private AudioFormat audioFormat;
+    
+    private SourceDataLine sourceDataLine;
+    
+    byte tempBuffer[] = new byte[10000];
+    
+    private static Mixer.Info[] mixerInfo = AudioSystem.getMixerInfo();
+    
     public Handler(Socket socket) {
       this.socket = socket;
     }
@@ -93,7 +114,6 @@ public class appMain{
               if(inputMsg == null) {
                 continue;
               }
-              System.out.println("TYPE = " + ((DefaultListModel)inputMsg).elementAt(0));
               checkMsgType((DefaultListModel<Object>) inputMsg, name);
             }
             catch(Exception e) {
@@ -110,12 +130,14 @@ public class appMain{
     private void checkMsgType(DefaultListModel input, String sender) {
       switch((int) input.elementAt(0)) {
         case RequestType.SEND_MSG:
-          System.out.println("Send DETECTED");
           sendMessage(input, sender);
           break;
         case RequestType.SEND_FILE:
-          System.out.println("File detected");
           sendFile(input, sender);
+          break;
+        case RequestType.CALL:
+          System.out.println("CALL DETECTED");
+          voiceCall();
           break;
         case RequestType.LOGOUT:
           Logout(input, sender);
@@ -177,13 +199,87 @@ public class appMain{
       }
     }
     
+    private void voiceCall() {
+      try {
+        Mixer mixer_ = AudioSystem.getMixer(mixerInfo[0]);
+        audioFormat = getaudioformat();
+        DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat);
+        sourceDataLine = (SourceDataLine) AudioSystem.getLine(dataLineInfo);
+        sourceDataLine.open(audioFormat);
+        sourceDataLine.start();
+        captureAudio();
+        voiceIn = new BufferedInputStream(socket.getInputStream());
+        voiceOut = new BufferedOutputStream(socket.getOutputStream());
+        while (voiceIn.read(tempBuffer) != -1) {
+            sourceDataLine.write(tempBuffer, 0, 10000);
+        }
+    } catch (IOException e) {
+      //TODO
+      e.printStackTrace();
+    } catch (LineUnavailableException e) {
+      // TODO
+      e.printStackTrace();
+    }
+    }
+    
     private void Logout(DefaultListModel input, String sender) {
       System.out.println("Client\"" + sender +"\" just logged out!\r");
       Thread.currentThread().stop();
     }
     
-  }
+    private AudioFormat getaudioformat() {
+      float sampleRate = 8000.0F;
+      int sampleSizeInBits = 8;
+      int channel = 1;
+      boolean signed = true;
+      boolean bigEndian = false;
+      return new AudioFormat(sampleRate, sampleSizeInBits, channel, signed, bigEndian);
+    }
+    
+    private void captureAudio() {
+      try {
+          audioFormat = getaudioformat();
+          DataLine.Info dataLineInfo = new DataLine.Info(TargetDataLine.class, audioFormat);
+          Mixer mixer = null;
+          System.out.println("Available mixers:");
+          for (int cnt = 0; cnt < mixerInfo.length; cnt++) {
+              mixer = AudioSystem.getMixer(mixerInfo[3]);
+              if (mixer.isLineSupported(dataLineInfo)) {
+                  System.out.println(mixerInfo[cnt].getName());
+                  targetDataLine = (TargetDataLine) mixer.getLine(dataLineInfo);
+              }
+          }
+          targetDataLine.open(audioFormat);
+          targetDataLine.start();
+          System.out.println("REACH THREAD");
+          Thread captureThread = new CaptureThread();
+          captureThread.start();
+      } catch (Exception e) {
+          System.out.println(e);
+      }
+    }
+    
+    class CaptureThread extends Thread {
 
+      byte tempBuffer[] = new byte[10000];
+
+      @Override
+      public void run() {
+          try {
+              while (true) {
+                  int cnt = targetDataLine.read(tempBuffer, 0, tempBuffer.length);
+                  voiceOut.write(tempBuffer);
+                  voiceOut.flush();
+              }
+          } catch (Exception e) {
+            System.out.println("Capture thread error");
+              System.out.println(e);
+          }
+      }
+   }
+    
+  }
+  
   public static void main(String[] args) {
     System.out.println("The server is running.....");
     ExecutorService threadPool = Executors.newFixedThreadPool(500);

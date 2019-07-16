@@ -16,11 +16,21 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.ListSelectionModel;
 import javax.swing.JTextField;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.Mixer;
+import javax.sound.sampled.SourceDataLine;
+import javax.sound.sampled.TargetDataLine;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JTextArea;
 import java.awt.event.ActionListener;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -53,6 +63,22 @@ public class Main extends JFrame {
   
   private ObjectOutputStream out;
   
+  private boolean stopCapture = false;
+  
+  private ByteArrayOutputStream byteArrayOutputStream;
+  
+  private AudioFormat audioFormat;
+  
+  private TargetDataLine targetDataLine;
+  
+  private AudioInputStream audioInputStream;
+  
+  private BufferedOutputStream voiceOut;
+  
+  private BufferedInputStream voiceIn;
+  
+  private SourceDataLine sourceDataLine;
+  
   private JPanel contentPane;
   
   private JTextField input;
@@ -70,6 +96,15 @@ public class Main extends JFrame {
   public String getName() {
     return user;
 }
+  
+  private AudioFormat getaudioformat() {
+    float sampleRate = 8000.0F;
+    int sampleSizeInBits = 8;
+    int channel = 1;
+    boolean signed = true;
+    boolean bigEndian = false;
+    return new AudioFormat(sampleRate, sampleSizeInBits, channel, signed, bigEndian);
+  }
   
   public String getSocket(String username) {
     try {
@@ -119,12 +154,10 @@ public class Main extends JFrame {
       while(true) {
         try {
           in = new ObjectInputStream(socket.getInputStream());
-          System.out.println("Second loop");
           DefaultListModel input = (DefaultListModel)in.readObject();
           if(input == null) {
             continue;
           }
-          System.out.println("ACCEPTED");
           int type = (int) input.elementAt(0);
           if(type == RequestType.SEND_MSG) {
             String message = (String) input.elementAt(1);
@@ -169,7 +202,7 @@ public class Main extends JFrame {
       login.setVisible(true);
     }
   }
-
+  
   /**
    * Create the frame.
    * @param username 
@@ -244,7 +277,17 @@ public class Main extends JFrame {
     JButton callBtn = new JButton("Call");
     callBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent arg0) {
-        
+        try {
+          out = new ObjectOutputStream(socket.getOutputStream());
+          DefaultListModel callModel = new DefaultListModel();
+          callModel.addElement(RequestType.CALL);
+          callModel.addElement(user);
+          out.writeObject(callModel);
+          captureAudio();
+        }
+        catch(Exception e) {
+          //TODO
+        }
       }
     });
     callBtn.setBounds(427, 13, 66, 34);
@@ -349,5 +392,87 @@ public class Main extends JFrame {
       //TODO
     }
     return new JList(listModel);
+  }
+  
+  private void captureAudio() {
+    try {
+        voiceOut = new BufferedOutputStream(socket.getOutputStream());
+        voiceIn = new BufferedInputStream(socket.getInputStream());
+
+        Mixer.Info[] mixerInfo = AudioSystem.getMixerInfo();
+        System.out.println("Available mixers:");
+        for (int cnt = 0; cnt < mixerInfo.length; cnt++) {
+            System.out.println(mixerInfo[cnt].getName());
+        }
+        audioFormat = getaudioformat();
+
+        DataLine.Info dataLineInfo = new DataLine.Info(TargetDataLine.class, audioFormat);
+
+        Mixer mixer = AudioSystem.getMixer(mixerInfo[3]);
+
+        targetDataLine = (TargetDataLine) mixer.getLine(dataLineInfo);
+
+        targetDataLine.open(audioFormat);
+        targetDataLine.start();
+        System.out.println("Capture Thread starts in main");
+        Thread captureThread = new CaptureThread();
+        captureThread.start();
+
+        DataLine.Info dataLineInfo1 = new DataLine.Info(SourceDataLine.class, audioFormat);
+        sourceDataLine = (SourceDataLine) AudioSystem.getLine(dataLineInfo1);
+        sourceDataLine.open(audioFormat);
+        sourceDataLine.start();
+        System.out.println("playThread starts in main");
+        Thread playThread = new PlayThread();
+        playThread.start();
+
+    } catch (Exception e) {
+      System.out.println("captureaudio() error");
+        System.out.println(e);//TODO
+    }
+}
+  
+  class CaptureThread extends Thread {
+
+    byte tempBuffer[] = new byte[10000];
+
+    @Override
+    public void run() {
+        byteArrayOutputStream = new ByteArrayOutputStream();
+        stopCapture = false;
+        try {
+            while (!stopCapture) {
+                int cnt = targetDataLine.read(tempBuffer, 0, tempBuffer.length);
+                voiceOut.write(tempBuffer);
+                if (cnt > 0) {
+                    byteArrayOutputStream.write(tempBuffer, 0, cnt);
+                }
+            }
+            byteArrayOutputStream.close();
+        } catch (Exception e) {
+          System.out.println("capture main error");
+            System.out.println(e);//TODO
+        }
+    }
+}
+
+  class PlayThread extends Thread {
+
+    byte tempBuffer[] = new byte[10000];
+
+    @Override
+    public void run() {
+        try {
+            while (voiceIn.read(tempBuffer) != -1) {
+                sourceDataLine.write(tempBuffer, 0, 10000);
+            }
+            sourceDataLine.drain();
+            sourceDataLine.close();
+
+        } catch (IOException e) {
+          System.out.println("playThread error");
+            e.printStackTrace();//TODO
+        }
+    }
   }
 }
