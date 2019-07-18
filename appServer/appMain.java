@@ -21,6 +21,7 @@ import javax.sound.sampled.Mixer;
 import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.TargetDataLine;
 import javax.swing.DefaultListModel;
+import AppClient.Main;
 
 /**
  * The server for the chat application. It allows multiple users to connect and text each other using 
@@ -49,34 +50,65 @@ public class appMain{
    * A HashMap that stores each users OutputStream along with their username as a key value.
    */
   public static HashMap<String, ObjectOutputStream> map = new HashMap<>();
-
+  
   /**
-   * This class Handles the connection to the Server.
+   * This class Handles the sockets connection to the Server.
    * @author Siddharth
    *
    */
-  private static class Handler extends Thread{
+  public static class Handler extends Thread{
     
+    /**
+     * Stores the socket of the client connecting to the server
+     */
     private Socket socket;
     
+    /**
+     * Creates an ObjectStream that can read Object inputs sent over the socket from the connected client to the server.
+     */
     private ObjectInputStream in;
     
+    /**
+     * Creates an ObjectStream that can send Objects from the server to the connected client.
+     */
     private ObjectOutputStream out;
     
+    /**
+     * ObjectOutputStream that gets the OutputStream of the receiving client.
+     */
     private ObjectOutputStream friendOut;
     
+    /**
+     * InputStream that carries the voice input from the connected client to the server
+     */
     private InputStream voiceIn;
     
+    /**
+     * OutputStream that carries the voice output from server to clients.
+     */
     private OutputStream voiceOut;
     
+    /**
+     * A line that can store the audio for the target.
+     */
     private TargetDataLine targetDataLine;
     
+    /**
+     * The audio format of the data line for the stream.
+     */
     private AudioFormat audioFormat;
     
+    /**
+     * The source of the audio is stored in this data line.
+     */
     private SourceDataLine sourceDataLine;
     
+    //The buffer for the audio stream
     byte tempBuffer[] = new byte[10000];
     
+    /**
+     * 
+     */
     private static Mixer.Info[] mixerInfo = AudioSystem.getMixerInfo();
     
     public Handler(Socket socket) {
@@ -136,7 +168,6 @@ public class appMain{
           sendFile(input, sender);
           break;
         case RequestType.CALL:
-          System.out.println("CALL DETECTED");
           voiceCall();
           break;
         case RequestType.LOGOUT:
@@ -208,11 +239,19 @@ public class appMain{
         sourceDataLine.open(audioFormat);
         sourceDataLine.start();
         captureAudio();
+        System.out.println("CaptureAudio() method done");
         voiceIn = new BufferedInputStream(socket.getInputStream());
         voiceOut = new BufferedOutputStream(socket.getOutputStream());
-        while (voiceIn.read(tempBuffer) != -1) {
+        while (Main.stopCapture == false) {
+          if(voiceIn.read(tempBuffer) != -1) {
             sourceDataLine.write(tempBuffer, 0, 10000);
+          }
         }
+        System.out.println("STOP CALL METHOD");
+        voiceIn.close();
+        voiceOut.close();
+        sourceDataLine.close();
+        return;
     } catch (IOException e) {
       //TODO
       e.printStackTrace();
@@ -224,12 +263,12 @@ public class appMain{
     
     private void Logout(DefaultListModel input, String sender) {
       System.out.println("Client\"" + sender +"\" just logged out!\r");
-      Thread.currentThread().stop();
+      Thread.currentThread().interrupt();
     }
     
     private AudioFormat getaudioformat() {
       float sampleRate = 8000.0F;
-      int sampleSizeInBits = 8;
+      int sampleSizeInBits = 16;
       int channel = 1;
       boolean signed = true;
       boolean bigEndian = false;
@@ -251,7 +290,6 @@ public class appMain{
           }
           targetDataLine.open(audioFormat);
           targetDataLine.start();
-          System.out.println("REACH THREAD");
           Thread captureThread = new CaptureThread();
           captureThread.start();
       } catch (Exception e) {
@@ -261,12 +299,19 @@ public class appMain{
     
     class CaptureThread extends Thread {
 
-      byte tempBuffer[] = new byte[10000];
+      byte tempBuffer[] = new byte[512];
 
       @Override
       public void run() {
           try {
-              while (true) {
+            System.out.println("Capture Thread Starts");
+            boolean call = true;
+              while (call) {
+                if(Main.stopCapture == true) {
+                  System.out.println("CAPTURE THREAD CLOSES");
+                  Thread.currentThread().interrupt();
+                  return;
+                }
                   int cnt = targetDataLine.read(tempBuffer, 0, tempBuffer.length);
                   voiceOut.write(tempBuffer);
                   voiceOut.flush();

@@ -12,6 +12,7 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import appServer.RequestType;
 import appServer.appMain;
+import appServer.appMain.Handler;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.ListSelectionModel;
@@ -63,7 +64,7 @@ public class Main extends JFrame {
   
   private ObjectOutputStream out;
   
-  private boolean stopCapture = false;
+  public static boolean stopCapture = false;
   
   private ByteArrayOutputStream byteArrayOutputStream;
   
@@ -92,6 +93,7 @@ public class Main extends JFrame {
   JList list;
   
   JTextArea textArea;
+  private JButton btnStopCall;
   
   public String getName() {
     return user;
@@ -99,7 +101,7 @@ public class Main extends JFrame {
   
   private AudioFormat getaudioformat() {
     float sampleRate = 8000.0F;
-    int sampleSizeInBits = 8;
+    int sampleSizeInBits = 16;
     int channel = 1;
     boolean signed = true;
     boolean bigEndian = false;
@@ -274,7 +276,7 @@ public class Main extends JFrame {
     contentPane.add(panel_1);
     panel_1.setLayout(null);
     
-    JButton callBtn = new JButton("Call");
+    JButton callBtn = new JButton("Start Call");
     callBtn.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent arg0) {
         try {
@@ -283,6 +285,8 @@ public class Main extends JFrame {
           callModel.addElement(RequestType.CALL);
           callModel.addElement(user);
           out.writeObject(callModel);
+          btnStopCall.setEnabled(true);
+          callBtn.setEnabled(false);
           captureAudio();
         }
         catch(Exception e) {
@@ -290,8 +294,20 @@ public class Main extends JFrame {
         }
       }
     });
-    callBtn.setBounds(427, 13, 66, 34);
+    callBtn.setBounds(303, 13, 89, 34);
     panel_1.add(callBtn);
+    
+    btnStopCall = new JButton("Stop Call");
+    btnStopCall.setEnabled(false);
+    btnStopCall.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) {
+        stopCapture = true;
+        callBtn.setEnabled(true);
+        btnStopCall.setEnabled(false);
+      }
+    });
+    btnStopCall.setBounds(404, 13, 89, 34);
+    panel_1.add(btnStopCall);
     
     JPanel panel_3 = new JPanel();
     panel_3.setBounds(215, 404, 481, 60);
@@ -422,7 +438,6 @@ public class Main extends JFrame {
         sourceDataLine = (SourceDataLine) AudioSystem.getLine(dataLineInfo1);
         sourceDataLine.open(audioFormat);
         sourceDataLine.start();
-        System.out.println("playThread starts in main");
         Thread playThread = new PlayThread();
         playThread.start();
 
@@ -449,6 +464,9 @@ public class Main extends JFrame {
                 }
             }
             byteArrayOutputStream.close();
+            System.out.println("Main Capture Thread Stop");
+            Thread.currentThread().interrupt();
+            return;
         } catch (Exception e) {
           System.out.println("capture main error");
             System.out.println(e);//TODO
@@ -463,12 +481,14 @@ public class Main extends JFrame {
     @Override
     public void run() {
         try {
-            while (voiceIn.read(tempBuffer) != -1) {
+            while (stopCapture == false && voiceIn.read(tempBuffer) != -1) {
                 sourceDataLine.write(tempBuffer, 0, 10000);
             }
             sourceDataLine.drain();
             sourceDataLine.close();
-
+            System.out.println("Main playThread Stop");
+            Thread.currentThread().interrupt();
+            return;
         } catch (IOException e) {
           System.out.println("playThread error");
             e.printStackTrace();//TODO
