@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
@@ -34,7 +36,7 @@ public class appMain{
   /**
    * The parameter that stores the port for the server.
    */
-  public static final int PORT = 59003;
+  public static final int PORT = 59008;
   
   /**
    * A HashSet which stores the names of all the users registered to use the app.
@@ -57,6 +59,20 @@ public class appMain{
    *
    */
   public static class Handler extends Thread{
+    
+    public static class Control {
+      public volatile static boolean flag = false;
+      
+      public static void setFlag(boolean flag) {
+        Control.flag = flag;
+      }
+      
+      public void updateFlag() {
+        if(Main.atomicStopCapture.get()) {
+          Control.flag = true;
+        }
+      }
+    }
     
     /**
      * Stores the socket of the client connecting to the server
@@ -103,63 +119,105 @@ public class appMain{
      */
     private SourceDataLine sourceDataLine;
     
-    //The buffer for the audio stream
+    /**
+     * The buffer for the audio stream.
+     */
     byte tempBuffer[] = new byte[10000];
     
+    //public volatile boolean stopCapture;
+    
+    Control control = new Control();
+    
     /**
-     * 
+     * Stores and access all the mixers installed on the server's system.
      */
     private static Mixer.Info[] mixerInfo = AudioSystem.getMixerInfo();
     
+    /**
+     * Constructor method for the Handler class.
+     * @param socket - Client's socket when connecting to server
+     */
     public Handler(Socket socket) {
       this.socket = socket;
     }
     
+//    public void updateStopCapture() {
+//      this.stopCapture = Main.atomicStopCapture.get();
+//      System.out.println("updateStopCapture() called: " + stopCapture);
+//    }
+    
+    
+    /** (non-Javadoc)
+     * @see java.lang.Thread#run()
+     * Creates the run() method as the Handler class extends Thread. Handles all of the server functions.
+     */
     public void run() {
-      String name;
+      String name; //Creates a variable that will store the client user's name
+      //Start of a repeating loop in the run method, to keep the server continuously running. 
       while(true) {
         try {
+          //Get the outputstream for the connected socket
           out = new ObjectOutputStream(socket.getOutputStream());
+          //Get the inputstream for the connect socket
           in = new ObjectInputStream(socket.getInputStream());
+          //This loop starts the servers connection with the client
           while(true) {
+            //Sends a name submission request to the client
             out.writeObject("SUBMIT");
             name = (String) in.readObject();
+            //if name returned is null, keeps prompting
             if (name == null){
               return;
             }
+            //inserts name and associated socket into the HashMap
             clients.put(name, socket);
+            //inserts name and associated output stream into the HashMap.
             map.put(name, out);
+            //Send out a request to get connection success response from the client
             while(true) {
               out.writeObject("CONNECTED");
               String read = (String) in.readObject();
               if(read.equals("SUCCESS")) {
-                break;
+                break; //Break out of connection success loop
               }
             }
-            break;
+            break; //Break out of server-client connection creation loop
           }
           
+          //Start of loop that processes requests from the client
           while(true) {
             try {
+              //Reads the input send by the client 
               in = new ObjectInputStream(socket.getInputStream());
               Object inputMsg = in.readObject();
+              //Re-prompts in null input
               if(inputMsg == null) {
                 continue;
               }
+              //calls checkMsgType() method to take required action before re-prompting for input
               checkMsgType((DefaultListModel<Object>) inputMsg, name);
             }
             catch(Exception e) {
-              //TODO
+              //System.err.println("FAILED: Request processing loop.");
+              //Logger.getLogger(appMain.class.getName()).log(Level.SEVERE, null, e);
             }
           }
         }
         catch(Exception e) {
-          //TODO
+          System.err.println("FAILED: run().");
+          Logger.getLogger(appMain.class.getName()).log(Level.SEVERE, null, e);
         }
       }
     }
     
+    /**
+     * Method to check the type of request sent by the client and call the appropriate method to
+     * deal with it.
+     * @param input - The input sent by the client.
+     * @param sender - The sender that the server assumes the request is sent by (checked later)
+     */
     private void checkMsgType(DefaultListModel input, String sender) {
+      //The client sends data in a ListModel format, where the element at 0 stores the type of the request.
       switch((int) input.elementAt(0)) {
         case RequestType.SEND_MSG:
           sendMessage(input, sender);
@@ -178,73 +236,123 @@ public class appMain{
       }
     }
     
+    /**
+     * This method processes the clients request to send Files over the connection to another 
+     * user.
+     * @param input - Sent by the client to the server
+     * @param sender - The user who sent the request to the server
+     */
     private void sendFile(DefaultListModel input, String sender) {
+      //Gets the name of the client user from input
       String user = (String) input.elementAt(2);
+      //Gets the data that the client send
       Data data = (Data) input.elementAt(1);
+      //Gets the list of the friends that the client wants to send the information too
       DefaultListModel<String> friendList = (DefaultListModel<String>) input.elementAt(3);
+      //the loop iterates through all the friends that the user wants to send the data too
       for(int i = 0; i < friendList.size(); i++) {
+        //Gets the friends name
         String friendName = friendList.elementAt(i);
+        //Gets the outputstream from the HashMap
         friendOut = map.get(friendName);
+        //Checks if the request is sent by the user the server thinks it is sent by and
+        //that the outputstream of the friends is not null
         if(user.equals(sender) && friendOut != null) {
           try {
+            //Creates the new listmodel to send to the receiving users
             DefaultListModel model = new DefaultListModel();
+            //At index 0 -> Add the type of request 
             model.addElement(RequestType.SEND_FILE);
+            //At index 1 -> Add the data
             model.addElement(data);
+            //At index 2 -> Add the name of the sender
             model.addElement(sender);
+            //Get the new OutputStream for the friend receiving the Model
             friendOut = new ObjectOutputStream((clients.get(friendName)).getOutputStream());
+            //Send the Model
             friendOut.writeObject(model);
+            //flush the stream
             friendOut.flush();
             System.out.println("Send file successful!");
           }
           catch (IOException e){
-            //TODO
-            System.out.println("FAILED TO SEND");
+            System.err.println("FAILED TO SEND FILE");
+            Logger.getLogger(appMain.class.getName()).log(Level.SEVERE, null, e);
           }
         }
       }
     }
     
+    /**
+     * This method processes the clients request to send messages to one or more friends over
+     * the connection.
+     * @param input - Sent by the client to the server
+     * @param sender - The user who sent the request to the server
+     */
     private void sendMessage(DefaultListModel input, String sender) {
+      //From the input extract the user, messages and friends to send message to
       String user = (String) input.elementAt(2);
       String message = (String) input.elementAt(1); 
       DefaultListModel<String> friendList = (DefaultListModel<String>) input.elementAt(3);
+      //iterate through the list of friends, sending the message to each one
       for(int i = 0; i < friendList.size(); i++) {
         String friendName = friendList.elementAt(i);
+        //From the HashMap get the friend's outputstream
         friendOut = map.get(friendName);
+        //If the user that sent the request is same as the user that the server thinks send the request and
+        //if the outputstream is not null, send the message to the friend 
         if(user.equals(sender) && friendOut != null) {
           try {
+            //Creates a new Model to send to the friend
             DefaultListModel model = new DefaultListModel();
             model.addElement(RequestType.SEND_MSG);
             model.addElement(message);
             model.addElement(sender);
+            //Gets a new instance of ObjectOutputStream from the socket and sends the message
             friendOut = new ObjectOutputStream((clients.get(friendName)).getOutputStream());
             friendOut.writeObject(model);
             friendOut.flush();
             System.out.println("Send message successful!");
           }
           catch (IOException e){
-            //TODO
             System.out.println("FAILED TO SEND");
+            Logger.getLogger(appMain.class.getName()).log(Level.SEVERE, null, e);
           }
         }
       }
     }
     
+    /**
+     * This method is called when the client wants to start a voice call over the connection.
+     */
     private void voiceCall() {
       try {
+        //Use the AudioSystem class again to get the mixers installed on this device
         Mixer mixer_ = AudioSystem.getMixer(mixerInfo[0]);
+        //Gets the audio format of the voice connection by calling another method that specifies the details
         audioFormat = getaudioformat();
+        //Get the specification for the dataline 
         DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat);
+        //Using the information of the specification from above, Create an instance of SourceDataLine
         sourceDataLine = (SourceDataLine) AudioSystem.getLine(dataLineInfo);
+        //Open the sourceDataLine for getting an input an start it
         sourceDataLine.open(audioFormat);
         sourceDataLine.start();
+        //After starting the source line, call the capture audio method
         captureAudio();
-        System.out.println("CaptureAudio() method done");
+        //Create new instance of the Voice input and output streams
         voiceIn = new BufferedInputStream(socket.getInputStream());
         voiceOut = new BufferedOutputStream(socket.getOutputStream());
-        while (Main.stopCapture == false) {
-          if(voiceIn.read(tempBuffer) != -1) {
-            sourceDataLine.write(tempBuffer, 0, 10000);
+        //keeps reading for voice input over the connection until the stopcapture boolean has been set to true
+        while (Control.flag == false) {
+          control.updateFlag();
+          if(Main.atomicStopCapture.get() == true) {
+            break;
+          }
+          else {
+            if(voiceIn.available() != 0 && voiceIn.read(tempBuffer) != -1) {
+              sourceDataLine.write(tempBuffer, 0, tempBuffer.length);
+            }
           }
         }
         System.out.println("STOP CALL METHOD");
@@ -261,11 +369,20 @@ public class appMain{
     }
     }
     
+    /**
+     * This method handles the clients request to log out of the application
+     * @param input - Sent by the client
+     * @param sender - The user that sent the request (acc. to the server)
+     */
     private void Logout(DefaultListModel input, String sender) {
       System.out.println("Client\"" + sender +"\" just logged out!\r");
       Thread.currentThread().interrupt();
     }
     
+    /**
+     * This method is responsible for creating an AudioFormat for the voice chat.
+     * @return
+     */
     private AudioFormat getaudioformat() {
       float sampleRate = 8000.0F;
       int sampleSizeInBits = 16;
@@ -275,6 +392,9 @@ public class appMain{
       return new AudioFormat(sampleRate, sampleSizeInBits, channel, signed, bigEndian);
     }
     
+    /**
+     * 
+     */
     private void captureAudio() {
       try {
           audioFormat = getaudioformat();
@@ -296,18 +416,19 @@ public class appMain{
           System.out.println(e);
       }
     }
-    
+      
     class CaptureThread extends Thread {
 
       byte tempBuffer[] = new byte[512];
-
+      
+      //volatile boolean threadStopCapture = stopCapture;
+      
       @Override
       public void run() {
           try {
-            System.out.println("Capture Thread Starts");
-            boolean call = true;
-              while (call) {
-                if(Main.stopCapture == true) {
+            System.out.println("Capture Thread Starts: " + Control.flag);
+              while (true) {
+                if(Control.flag == true) {
                   System.out.println("CAPTURE THREAD CLOSES");
                   Thread.currentThread().interrupt();
                   return;
@@ -325,9 +446,13 @@ public class appMain{
     
   }
   
+  /**
+   * The main method of the server application which is responsible for accepting socket connections and 
+   * opening each one on its own thread.
+   * @param args
+   */
   public static void main(String[] args) {
     System.out.println("The server is running.....");
-    ExecutorService threadPool = Executors.newFixedThreadPool(500);
     try(ServerSocket listener = new ServerSocket(PORT);){
       while(true) {
         new Handler (listener.accept()).start();

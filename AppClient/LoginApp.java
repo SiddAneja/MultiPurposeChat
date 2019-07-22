@@ -105,6 +105,7 @@ public class LoginApp extends JFrame {
           //Creates a statement using the connection
           Statement stmt = con.createStatement();
           String name = username.getText();
+          System.out.println(name);
           String pass = new String(password.getPassword());
           //Create a String which is the query to be run in SQL
           String qry = "select * from login where Username="+" '"+name+"';";
