@@ -13,6 +13,7 @@ import javax.swing.event.ListSelectionListener;
 import appServer.RequestType;
 import appServer.appMain;
 import appServer.appMain.Handler;
+import appServer.appMain.Handler.Control;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.ListSelectionModel;
@@ -46,13 +47,14 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Scanner;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.awt.event.ActionEvent;
 
 public class Main extends JFrame {
   
   private static final String serverAddress = "127.0.0.1";
   
-  public static final int PORT = 59003;
+  public static final int PORT = 59008;
   
   public ArrayList<String> names = new ArrayList<>();
   
@@ -64,7 +66,8 @@ public class Main extends JFrame {
   
   private ObjectOutputStream out;
   
-  public static boolean stopCapture = false;
+//  public static AtomicBoolean atomicStopCapture = new AtomicBoolean(false);
+  public volatile static boolean stopCapture = false;
   
   private ByteArrayOutputStream byteArrayOutputStream;
   
@@ -93,16 +96,14 @@ public class Main extends JFrame {
   JList list;
   
   JTextArea textArea;
+  
   private JButton btnStopCall;
   
-  public String getName() {
-    return user;
-}
   
   private AudioFormat getaudioformat() {
     float sampleRate = 8000.0F;
-    int sampleSizeInBits = 16;
-    int channel = 1;
+    int sampleSizeInBits = 8;
+    int channel = 2;
     boolean signed = true;
     boolean bigEndian = false;
     return new AudioFormat(sampleRate, sampleSizeInBits, channel, signed, bigEndian);
@@ -134,7 +135,7 @@ public class Main extends JFrame {
       while(true) {
         String line = (String)in.readObject();
         if(line.startsWith("SUBMIT")) {
-          String name = getName();
+          String name = this.user;
           out.writeObject(name);
           this.setTitle("Multi-purpose chat: " + name);
         }
@@ -188,6 +189,7 @@ public class Main extends JFrame {
       }
     } catch (ClassNotFoundException e) {
     } finally {
+      //TODO
     }
   }
 
@@ -302,6 +304,8 @@ public class Main extends JFrame {
     btnStopCall.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         stopCapture = true;
+        Control.setFlag(true);
+        appMain.Handler.Control.setFlag(true);
         callBtn.setEnabled(true);
         btnStopCall.setEnabled(false);
       }
@@ -430,7 +434,6 @@ public class Main extends JFrame {
 
         targetDataLine.open(audioFormat);
         targetDataLine.start();
-        System.out.println("Capture Thread starts in main");
         Thread captureThread = new CaptureThread();
         captureThread.start();
 
@@ -454,10 +457,10 @@ public class Main extends JFrame {
     @Override
     public void run() {
         byteArrayOutputStream = new ByteArrayOutputStream();
-        stopCapture = false;
+        //stopCapture = false;
         try {
             while (!stopCapture) {
-                int cnt = targetDataLine.read(tempBuffer, 0, tempBuffer.length);
+                int cnt = targetDataLine.read(tempBuffer, 0, 10000);
                 voiceOut.write(tempBuffer);
                 if (cnt > 0) {
                     byteArrayOutputStream.write(tempBuffer, 0, cnt);

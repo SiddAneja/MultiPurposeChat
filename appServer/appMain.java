@@ -68,9 +68,10 @@ public class appMain{
       }
       
       public void updateFlag() {
-        if(Main.atomicStopCapture.get()) {
-          Control.flag = true;
+        if(Main.stopCapture == true) {
+          Control.setFlag(true);
         }
+        return;
       }
     }
     
@@ -343,14 +344,14 @@ public class appMain{
         //Create new instance of the Voice input and output streams
         voiceIn = new BufferedInputStream(socket.getInputStream());
         voiceOut = new BufferedOutputStream(socket.getOutputStream());
-        //keeps reading for voice input over the connection until the stopcapture boolean has been set to true
+        //keeps reading for voice input over the connection until the stopCapture boolean has been set to true
         while (Control.flag == false) {
           control.updateFlag();
-          if(Main.atomicStopCapture.get() == true) {
+          if(Control.flag == true) {
             break;
           }
           else {
-            if(voiceIn.available() != 0 && voiceIn.read(tempBuffer) != -1) {
+            if(voiceIn.read(tempBuffer) != -1) {
               sourceDataLine.write(tempBuffer, 0, tempBuffer.length);
             }
           }
@@ -385,8 +386,8 @@ public class appMain{
      */
     private AudioFormat getaudioformat() {
       float sampleRate = 8000.0F;
-      int sampleSizeInBits = 16;
-      int channel = 1;
+      int sampleSizeInBits = 8;
+      int channel = 2;
       boolean signed = true;
       boolean bigEndian = false;
       return new AudioFormat(sampleRate, sampleSizeInBits, channel, signed, bigEndian);
@@ -419,16 +420,18 @@ public class appMain{
       
     class CaptureThread extends Thread {
 
-      byte tempBuffer[] = new byte[512];
+      byte tempBuffer[] = new byte[10000];
       
-      //volatile boolean threadStopCapture = stopCapture;
+      volatile boolean threadStopCapture = Control.flag;
       
       @Override
       public void run() {
           try {
-            System.out.println("Capture Thread Starts: " + Control.flag);
+            System.out.println("Capture Thread Starts: " + threadStopCapture);
               while (true) {
-                if(Control.flag == true) {
+                control.updateFlag();
+                threadStopCapture = Control.flag;
+                if(threadStopCapture == true) {
                   System.out.println("CAPTURE THREAD CLOSES");
                   Thread.currentThread().interrupt();
                   return;
